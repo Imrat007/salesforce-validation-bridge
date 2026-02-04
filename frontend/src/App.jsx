@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import Layout from './components/layout/Layout';
-import LoginForm from './components/auth/LoginForm';
+import LoginForm from './components/auth/Loginform';
 import RulesSection from './components/rules/Rulessection';
 import Alert from './components/common/Alert';
 import Loader from './components/common/Loader';
-import EmptyState from './components/rules/EmptyState';
+import EmptyState from './components/rules/Emptystate .jsx';
 import { useAuth } from './hooks/useAuth';
 import { useRules } from './hooks/useRules';
 import { useToast } from './hooks/useToast';
