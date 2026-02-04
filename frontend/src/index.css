@@ -1,0 +1,23 @@
+/* ========================================
+   Main CSS Index File
+   Import this file in your index.js or App.jsx
+   ======================================== */
+
+/* Import CSS Variables First */
+
+@import './styles/variables.css';
+@import './styles/global.css';
+@import './styles/components/Layout.css';
+@import './styles/components/Auth.css';
+@import './styles/components/Rules.css';
+@import './styles/components/common.css';
+
+/* Note: Make sure all these CSS files are in the same directory as index.css
+   OR adjust the paths accordingly based on your folder structure:
+   
+   For organized structure:
+   @import './components/layout.css';
+   @import './components/auth.css';
+   @import './components/rules.css';
+   @import './components/common.css';
+*/

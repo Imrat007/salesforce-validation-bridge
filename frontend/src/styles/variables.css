@@ -1,0 +1,46 @@
+/* ========================================
+   CSS Variables - Salesforce Lightning Inspired
+   ======================================== */
+
+:root {
+  /* Salesforce Lightning Colors */
+  --sf-blue: #00A1E0;
+  --sf-blue-dark: #0176D3;
+  --sf-blue-darker: #014486;
+  --sf-blue-light: #E6F4FF;
+  --sf-blue-lighter: #F0F9FF;
+  
+  --sf-green: #2E844A;
+  --sf-green-dark: #1C6B2E;
+  --sf-green-light: #E8F5EA;
+  
+  --sf-red: #EA001E;
+  --sf-red-dark: #C23934;
+  --sf-red-light: #FEF2F2;
+  
+  --sf-yellow: #FFC107;
+  --sf-yellow-light: #FFF9E6;
+  
+  --sf-gray-50: #FAFAF9;
+  --sf-gray-100: #F3F3F2;
+  --sf-gray-200: #E5E5E1;
+  --sf-gray-300: #D4D4D0;
+  --sf-gray-400: #AEACA9;
+  --sf-gray-500: #8E8C89;
+  --sf-gray-600: #706E6B;
+  --sf-gray-700: #514F4D;
+  --sf-gray-800: #3E3E3C;
+  --sf-gray-900: #181818;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}

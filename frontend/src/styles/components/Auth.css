@@ -1,0 +1,197 @@
+/* ========================================
+   Authentication Components CSS
+   ======================================== */
+
+/* ========================================
+   Login Container
+   ======================================== */
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 250px);
+  padding: 2rem;
+}
+
+.login-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 3rem;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--sf-gray-200);
+  animation: scaleIn var(--transition-slow);
+}
+
+.login-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.login-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--sf-gray-900);
+  margin-bottom: 0.5rem;
+  text-align: center;
+  letter-spacing: -0.025em;
+}
+
+.login-subtitle {
+  color: var(--sf-gray-600);
+  font-size: 0.9375rem;
+  text-align: center;
+  margin-bottom: 2.5rem;
+  line-height: 1.5;
+}
+
+.login-footer {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--sf-gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--sf-gray-600);
+}
+
+/* ========================================
+   Forms
+   ======================================== */
+
+.form-group {
+  margin-bottom: 1.75rem;
+}
+
+.form-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--sf-gray-800);
+  margin-bottom: 0.625rem;
+  letter-spacing: 0.0125em;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid var(--sf-gray-300);
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  transition: all var(--transition-base);
+  background: white;
+  color: var(--sf-gray-900);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--sf-blue);
+  box-shadow: 0 0 0 3px var(--sf-blue-light);
+}
+
+.form-input::placeholder {
+  color: var(--sf-gray-400);
+}
+
+.form-hint {
+  font-size: 0.8125rem;
+  color: var(--sf-gray-600);
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+/* ========================================
+   Radio Group
+   ======================================== */
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: flex-start;
+  padding: 1.25rem;
+  border: 2px solid var(--sf-gray-200);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  background: white;
+}
+
+.radio-label:hover {
+  border-color: var(--sf-blue);
+  background: var(--sf-blue-lighter);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.radio-label.radio-selected {
+  border-color: var(--sf-blue);
+  background: var(--sf-blue-light);
+  box-shadow: var(--shadow-md);
+}
+
+.radio-label input[type="radio"] {
+  margin-top: 0.25rem;
+  margin-right: 1rem;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--sf-blue);
+}
+
+.radio-content {
+  flex: 1;
+}
+
+.radio-title {
+  font-weight: 600;
+  color: var(--sf-gray-900);
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.radio-icon {
+  color: var(--sf-blue);
+}
+
+.radio-desc {
+  font-size: 0.8125rem;
+  color: var(--sf-gray-600);
+  font-weight: normal;
+}
+
+/* ========================================
+   Responsive - Auth
+   ======================================== */
+
+@media (max-width: 768px) {
+  .login-card {
+    padding: 2rem;
+  }
+
+  .login-title {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 1.5rem;
+  }
+
+  .login-title {
+    font-size: 1.5rem;
+  }
+}
