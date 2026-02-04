@@ -1,5 +1,5 @@
-import SearchBox from '../common/SearchBox';
-import FilterGroup from '../common/FilterGroup';
+import SearchBox from '../common/Searchbox';
+import FilterGroup from '../common/Filtergroup';
 
 const RulesHeader = ({
   totalCount,

@@ -1,6 +1,6 @@
 import { FILTER_OPTIONS } from '../../utils/constants';
 
-const FilterGroup = ({ activeFilter, onChange }) => {
+const Filtergroup = ({ activeFilter, onChange }) => {
   const filters = [
     { value: FILTER_OPTIONS.ALL, label: 'All' },
     { value: FILTER_OPTIONS.ACTIVE, label: 'Enabled' },
@@ -22,4 +22,4 @@ const FilterGroup = ({ activeFilter, onChange }) => {
   );
 };
 
-export default FilterGroup;
+export default Filtergroup;

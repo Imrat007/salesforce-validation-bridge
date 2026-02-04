@@ -1,4 +1,4 @@
-const SearchBox = ({ value, onChange, placeholder = 'Search rules...' }) => {
+const Searchbox = ({ value, onChange, placeholder = 'Search rules...' }) => {
   return (
     <div className="search-box">
       <svg className="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -15,4 +15,4 @@ const SearchBox = ({ value, onChange, placeholder = 'Search rules...' }) => {
   );
 };
 
-export default SearchBox;
+export default Searchbox;
