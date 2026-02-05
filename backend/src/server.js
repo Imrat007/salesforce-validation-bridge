@@ -144,38 +144,56 @@ app.use((req, res, next) => {
 app.use('/', routes);
 
 // ---------------------------------------------------------------------------
-// Serve Frontend (Production)
+// Serve Frontend - Development Only
 // ---------------------------------------------------------------------------
 
-if (!config.isDev) {
-  const frontendPath = path.join(__dirname, '../../frontend/dist');
-  
-  // Serve static files
-  app.use(express.static(frontendPath, {
-    maxAge: '1y',
-    etag: true,
-  }));
-
-  // SPA fallback
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-  });
-  
-  logger.info('Production mode: Serving static frontend files');
+if (config.isDev) {
+  // Development: Proxy to Vite dev server
+  try {
+    const { createProxyMiddleware } = require('http-proxy-middleware');
+    
+    app.use(
+      createProxyMiddleware({
+        target: 'http://localhost:5173',
+        changeOrigin: true,
+        ws: true,
+        logLevel: 'silent',
+        onError: (err, req, res) => {
+          logger.error('Proxy Error:', err.message);
+          res.status(500).json({ 
+            error: 'Frontend dev server not running',
+            message: 'Please start frontend: cd frontend && npm run dev'
+          });
+        }
+      })
+    );
+    
+    logger.info('Development mode: Proxying to Vite dev server at http://localhost:5173');
+  } catch (error) {
+    logger.warn('http-proxy-middleware not available. Install it for dev proxy support.');
+  }
 } else {
-  // Development: Proxy to Vite
-  const { createProxyMiddleware } = require('http-proxy-middleware');
+  // Production: Frontend deployed separately (Vercel)
+  logger.info('Production mode: Backend API only (Frontend on Vercel)');
   
-  app.use(
-    createProxyMiddleware({
-      target: 'http://localhost:5173',
-      changeOrigin: true,
-      ws: true,
-      logLevel: 'silent',
-    })
-  );
-  
-  logger.info('Development mode: Proxying to Vite dev server');
+  // Root endpoint for API documentation or status
+  app.get('/', (req, res) => {
+    res.json({
+      name: 'Salesforce Validation Rules Bridge API',
+      version: '1.0.0',
+      status: 'running',
+      environment: config.nodeEnv,
+      endpoints: {
+        health: '/api/health',
+        login: '/login',
+        callback: '/callback',
+        validation: '/api/validation-rules',
+        toggle: '/api/validation-toggle'
+      },
+      frontend: process.env.FRONTEND_URL || 'https://your-frontend.vercel.app',
+      documentation: 'See README.md for API usage'
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -204,8 +222,10 @@ const server = app.listen(PORT, () => {
     logger.info('\n💡 Development Instructions:');
     logger.info('   1. Start frontend: cd frontend && npm run dev');
     logger.info('   2. Open browser: http://localhost:5173');
+    logger.info('   3. Backend API: http://localhost:3000');
   } else {
-    logger.info(`\n🌐 Open browser: ${config.appUrl}`);
+    logger.info(`\n🌐 Backend API: ${config.appUrl}`);
+    logger.info(`🌐 Frontend: ${process.env.FRONTEND_URL || 'Deployed on Vercel'}`);
   }
   
   logger.info('═══════════════════════════════════════════════════\n');
