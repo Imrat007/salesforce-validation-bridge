@@ -168,6 +168,9 @@ const config = {
   apiRateLimitWindowMs: parseInt(process.env.API_RATE_LIMIT_WINDOW_MS || '60000', 10), // 1 min
   apiRateLimitMax: parseInt(process.env.API_RATE_LIMIT_MAX || '30', 10),
   
+  // Redis
+  redisUrl: process.env.REDIS_URL || '',
+  
   // Logging
   logLevel: process.env.LOG_LEVEL || (isDev ? 'debug' : 'info'),
   

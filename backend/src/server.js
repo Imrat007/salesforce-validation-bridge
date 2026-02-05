@@ -82,12 +82,18 @@ const sessionConfig = {
   },
 };
 
-// Production session store (use Redis/PostgreSQL in real production)
+
+// Production session store (use Redis in production)
 if (config.isProduction) {
-  // TODO: Add production session store
-  // const RedisStore = require('connect-redis')(session);
-  // sessionConfig.store = new RedisStore({ client: redisClient });
-  logger.warn('Using memory session store. Configure Redis for production!');
+  if (process.env.REDIS_URL) {
+    const Redis = require('ioredis');
+    const RedisStore = require('connect-redis')(session);
+    const redisClient = new Redis(process.env.REDIS_URL);
+    sessionConfig.store = new RedisStore({ client: redisClient });
+    logger.info('Using Redis session store in production.');
+  } else {
+    logger.warn('REDIS_URL not set! Using memory session store. This is NOT safe for production.');
+  }
 }
 
 app.use(session(sessionConfig));
