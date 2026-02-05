@@ -41,7 +41,9 @@ router.get('/login', (req, res) => {
   req.session.save((err) => {
     if (err) {
       logger.error('Session save error:', err);
-      return res.redirect(`${config.appUrl}?error=${encodeURIComponent('Session initialization failed')}`);
+      // ✅ FIXED: Redirect to frontend, not backend
+      const frontendUrl = config.frontendUrl || config.appUrl;
+      return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Session initialization failed')}`);
     }
 
     const params = new URLSearchParams({
@@ -69,13 +71,16 @@ router.get('/login', (req, res) => {
 router.get('/oauth/callback', async (req, res) => {
   const { code, error, error_description } = req.query;
 
+  // ✅ FIXED: Use frontend URL for redirects
+  const frontendUrl = config.frontendUrl || config.appUrl;
+
   if (error) {
     logger.error('OAuth error:', error, error_description);
-    return res.redirect(`${config.appUrl}?error=${encodeURIComponent(error_description || error)}`);
+    return res.redirect(`${frontendUrl}?error=${encodeURIComponent(error_description || error)}`);
   }
 
   if (!code) {
-    return res.redirect(`${config.appUrl}?error=${encodeURIComponent('No authorization code received')}`);
+    return res.redirect(`${frontendUrl}?error=${encodeURIComponent('No authorization code received')}`);
   }
 
   const salesforceDomain = req.session.salesforce_domain || config.salesforceDomains.production;
@@ -83,7 +88,7 @@ router.get('/oauth/callback', async (req, res) => {
 
   if (!codeVerifier) {
     logger.error('Code verifier not found in session');
-    return res.redirect(`${config.appUrl}?error=${encodeURIComponent('Session expired. Please try logging in again.')}`);
+    return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Session expired. Please try logging in again.')}`);
   }
 
   const tokenUrl = `${salesforceDomain}/services/oauth2/token`;
@@ -130,16 +135,20 @@ router.get('/oauth/callback', async (req, res) => {
     req.session.save((err) => {
       if (err) {
         logger.error('Session save error:', err);
-        return res.redirect(`${config.appUrl}?error=${encodeURIComponent('Failed to save session')}`);
+        return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Failed to save session')}`);
       }
 
       logger.info(`User authenticated: ${userInfo.username} (${userInfo.userType})`);
-      res.redirect(`${config.appUrl}?success=1`);
+      
+      // ✅ FIXED: Redirect to frontend with success
+      res.redirect(`${frontendUrl}?success=1`);
     });
   } catch (err) {
     logger.error('Token exchange error:', err.response?.data || err.message);
     const errorMsg = err.response?.data?.error_description || err.message || 'Authentication failed';
-    res.redirect(`${config.appUrl}?error=${encodeURIComponent(errorMsg)}`);
+    
+    // ✅ FIXED: Redirect to frontend with error
+    res.redirect(`${frontendUrl}?error=${encodeURIComponent(errorMsg)}`);
   }
 });
 
@@ -175,11 +184,14 @@ router.post('/logout', (req, res) => {
  */
 router.get('/logout', (req, res) => {
   const username = req.session?.username || 'User';
+  
+  // ✅ FIXED: Redirect to frontend after logout
+  const frontendUrl = config.frontendUrl || config.appUrl;
 
   req.session.destroy((err) => {
     if (err) {
       logger.error('Logout error:', err);
-      return res.redirect(`${config.appUrl}?error=${encodeURIComponent('Logout failed')}`);
+      return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Logout failed')}`);
     }
 
     res.clearCookie('sf.sid', {
@@ -190,7 +202,9 @@ router.get('/logout', (req, res) => {
     });
 
     logger.info(`User logged out: ${username}`);
-    res.redirect(config.appUrl);
+    
+    // ✅ FIXED: Redirect to frontend home
+    res.redirect(frontendUrl);
   });
 });
 
