@@ -1,6 +1,6 @@
 /**
  * Authentication Routes
- * OAuth login, callback, and logout
+ * OAuth login, callback, and logout with FIXED session handling
  */
 
 const express = require('express');
@@ -8,61 +8,79 @@ const axios = require('axios');
 const config = require('../config/config');
 const logger = require('../utils/logger');
 const { generateCodeVerifier, generateCodeChallenge } = require('../utils/pkce');
-const { fetchUserInfo } = require('../services/salesforceService');
 
 const router = express.Router();
 
 /**
- * GET /login - Start OAuth flow with PKCE
+ * GET /login - Initiate OAuth flow
  */
 router.get('/login', (req, res) => {
-  const domainType = req.query.domain || 'production';
-  const customDomain = req.query.customDomain || '';
-
-  // Determine Salesforce domain
-  let salesforceDomain;
-  if (domainType === 'custom' && customDomain) {
-    salesforceDomain = customDomain.replace(/\/$/, '');
-  } else if (domainType === 'sandbox') {
-    salesforceDomain = config.salesforceDomains.sandbox;
-  } else {
-    salesforceDomain = config.salesforceDomains.production;
-  }
-
-  // Generate PKCE code verifier and challenge
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
-
-  // Store in session
-  req.session.salesforce_domain = salesforceDomain;
-  req.session.domain_type = domainType;
-  req.session.code_verifier = codeVerifier;
-
-  req.session.save((err) => {
-    if (err) {
-      logger.error('Session save error:', err);
-      // ✅ FIXED: Redirect to frontend, not backend
-      const frontendUrl = config.frontendUrl || config.appUrl;
-      return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Session initialization failed')}`);
+  try {
+    const domainType = req.query.domain || 'production';
+    
+    // Determine auth URL
+    let authUrl;
+    if (domainType === 'sandbox') {
+      authUrl = 'https://test.salesforce.com/services/oauth2/authorize';
+    } else if (domainType === 'custom' && req.query.customDomain) {
+      authUrl = `https://${req.query.customDomain}/services/oauth2/authorize`;
+    } else {
+      authUrl = 'https://login.salesforce.com/services/oauth2/authorize';
     }
 
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      scope: 'api refresh_token',
-      prompt: 'login',
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
-    });
+    // PKCE challenge
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = generateCodeChallenge(codeVerifier);
 
-    const authUrl = `${salesforceDomain}/services/oauth2/authorize?${params.toString()}`;
-    
-    logger.info(`OAuth redirect to: ${salesforceDomain}`);
-    logger.debug('PKCE enabled with code challenge');
-    
-    res.redirect(authUrl);
-  });
+    // FIXED: Store in session with proper initialization
+    if (!req.session) {
+      logger.error('Session not initialized!');
+      return res.status(500).json({
+        success: false,
+        error: 'Session initialization failed',
+        code: 'SESSION_ERROR'
+      });
+    }
+
+    req.session.code_verifier = codeVerifier;
+    req.session.domain_type = domainType;
+    req.session.custom_domain = req.query.customDomain || '';
+
+    // Save session before redirect - CRITICAL
+    req.session.save((err) => {
+      if (err) {
+        logger.error('Session save error:', err);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to save session',
+          code: 'SESSION_SAVE_ERROR'
+        });
+      }
+
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: config.clientId,
+        redirect_uri: config.redirectUri,
+        scope: 'api id web refresh_token',
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+        prompt: 'login',
+      });
+
+      const loginUrl = `${authUrl}?${params.toString()}`;
+      logger.info(`Redirecting to Salesforce login (${domainType})`);
+      
+      res.redirect(loginUrl);
+    });
+  } catch (err) {
+    logger.error('Login error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to initiate login',
+      code: 'LOGIN_ERROR',
+      details: config.isDevelopment ? err.message : undefined
+    });
+  }
 });
 
 /**
@@ -71,140 +89,148 @@ router.get('/login', (req, res) => {
 router.get('/oauth/callback', async (req, res) => {
   const { code, error, error_description } = req.query;
 
-  // ✅ FIXED: Use frontend URL for redirects
-  const frontendUrl = config.frontendUrl || config.appUrl;
-
+  // Handle OAuth errors
   if (error) {
     logger.error('OAuth error:', error, error_description);
-    return res.redirect(`${frontendUrl}?error=${encodeURIComponent(error_description || error)}`);
+    return res.redirect(`${config.frontendUrl}/?error=${encodeURIComponent(error_description || error)}`);
   }
 
   if (!code) {
-    return res.redirect(`${frontendUrl}?error=${encodeURIComponent('No authorization code received')}`);
+    logger.error('No authorization code received');
+    return res.redirect(`${config.frontendUrl}/?error=no_code`);
   }
-
-  const salesforceDomain = req.session.salesforce_domain || config.salesforceDomains.production;
-  const codeVerifier = req.session.code_verifier;
-
-  if (!codeVerifier) {
-    logger.error('Code verifier not found in session');
-    return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Session expired. Please try logging in again.')}`);
-  }
-
-  const tokenUrl = `${salesforceDomain}/services/oauth2/token`;
-  const tokenBody = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
-    redirect_uri: config.redirectUri,
-    code_verifier: codeVerifier,
-  });
 
   try {
-    logger.info('Exchanging authorization code for access token');
-    
-    const tokenResponse = await axios.post(tokenUrl, tokenBody.toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 10000,
-    });
-
-    const { access_token, instance_url, id } = tokenResponse.data;
-
-    if (!access_token || !instance_url) {
-      throw new Error('Token response missing access_token or instance_url');
+    // FIXED: Check session exists
+    if (!req.session || !req.session.code_verifier) {
+      logger.error('Session or code_verifier missing in callback');
+      return res.redirect(`${config.frontendUrl}/?error=session_expired`);
     }
 
-    logger.info('Access token received, fetching user info');
+    const codeVerifier = req.session.code_verifier;
+    const domainType = req.session.domain_type || 'production';
+    const customDomain = req.session.custom_domain || '';
 
-    // Fetch user information
-    const userInfo = await fetchUserInfo(id, access_token);
+    // Determine token URL
+    let tokenUrl;
+    if (domainType === 'sandbox') {
+      tokenUrl = 'https://test.salesforce.com/services/oauth2/token';
+    } else if (domainType === 'custom' && customDomain) {
+      tokenUrl = `https://${customDomain}/services/oauth2/token`;
+    } else {
+      tokenUrl = 'https://login.salesforce.com/services/oauth2/token';
+    }
 
-    // Store in session
+    // Exchange code for tokens
+    const tokenParams = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      redirect_uri: config.redirectUri,
+      code_verifier: codeVerifier,
+    });
+
+    logger.info('Exchanging code for tokens...');
+    const tokenResponse = await axios.post(tokenUrl, tokenParams.toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: config.requestTimeout,
+    });
+
+    const {
+      access_token,
+      refresh_token,
+      instance_url,
+      id: idUrl,
+    } = tokenResponse.data;
+
+    // Fetch user info
+    logger.info('Fetching user info...');
+    const userInfoResponse = await axios.get(idUrl, {
+      headers: { Authorization: `Bearer ${access_token}` },
+      timeout: config.requestTimeout,
+    });
+
+    const userInfo = userInfoResponse.data;
+
+    // FIXED: Store everything in session properly
     req.session.access_token = access_token;
-    req.session.instance_url = instance_url.replace(/\/$/, '');
-    req.session.salesforce_domain = salesforceDomain;
-    req.session.username = userInfo.username;
-    req.session.email = userInfo.email;
-    req.session.userType = userInfo.userType;
+    req.session.refresh_token = refresh_token;
+    req.session.instance_url = instance_url;
     req.session.authenticated = true;
+    req.session.username = userInfo.username || 'User';
+    req.session.email = userInfo.email || '';
+    req.session.userType = userInfo.user_type || 'Standard';
+    req.session.domain_type = domainType;
 
-    // Clear code verifier
+    // Clean up temporary data
     delete req.session.code_verifier;
+    delete req.session.custom_domain;
 
+    // CRITICAL: Save session before redirect
     req.session.save((err) => {
       if (err) {
-        logger.error('Session save error:', err);
-        return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Failed to save session')}`);
+        logger.error('Failed to save session after authentication:', err);
+        return res.redirect(`${config.frontendUrl}/?error=session_save_failed`);
       }
 
-      logger.info(`User authenticated: ${userInfo.username} (${userInfo.userType})`);
-      
-      // ✅ FIXED: Redirect to frontend with success
-      res.redirect(`${frontendUrl}?success=1`);
+      logger.info(`✅ User authenticated successfully: ${userInfo.username}`);
+      res.redirect(`${config.frontendUrl}/?login=success`);
     });
+
   } catch (err) {
-    logger.error('Token exchange error:', err.response?.data || err.message);
-    const errorMsg = err.response?.data?.error_description || err.message || 'Authentication failed';
+    logger.error('OAuth callback error:', err.response?.data || err.message);
     
-    // ✅ FIXED: Redirect to frontend with error
-    res.redirect(`${frontendUrl}?error=${encodeURIComponent(errorMsg)}`);
+    const errorMsg = err.response?.data?.error_description || 
+                     err.response?.data?.error || 
+                     'Authentication failed';
+    
+    res.redirect(`${config.frontendUrl}/?error=${encodeURIComponent(errorMsg)}`);
   }
 });
 
 /**
- * POST /logout - Destroy session
+ * POST /logout - Clear session and logout
  */
 router.post('/logout', (req, res) => {
-  const username = req.session?.username || 'User';
+  if (!req.session) {
+    return res.json({ success: true, message: 'Already logged out' });
+  }
 
+  const username = req.session.username || 'User';
+  
+  // Destroy session - FIXED
   req.session.destroy((err) => {
     if (err) {
-      logger.error('Logout error:', err);
+      logger.error('Session destruction error:', err);
       return res.status(500).json({
         success: false,
         error: 'Failed to logout',
+        code: 'LOGOUT_ERROR'
       });
     }
 
-    res.clearCookie('sf.sid', {
-      path: '/',
-      httpOnly: true,
-      secure: config.isProduction,
-      sameSite: config.isProduction ? 'strict' : 'lax',
-    });
-
     logger.info(`User logged out: ${username}`);
-    res.json({ success: true, message: 'Logged out successfully' });
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
   });
 });
 
 /**
- * GET /logout - Browser-friendly logout
+ * GET /logout - Alternative logout endpoint (for GET requests)
  */
 router.get('/logout', (req, res) => {
-  const username = req.session?.username || 'User';
-  
-  // ✅ FIXED: Redirect to frontend after logout
-  const frontendUrl = config.frontendUrl || config.appUrl;
+  if (!req.session) {
+    return res.redirect(`${config.frontendUrl}/?logout=success`);
+  }
 
   req.session.destroy((err) => {
     if (err) {
-      logger.error('Logout error:', err);
-      return res.redirect(`${frontendUrl}?error=${encodeURIComponent('Logout failed')}`);
+      logger.error('Session destruction error:', err);
     }
-
-    res.clearCookie('sf.sid', {
-      path: '/',
-      httpOnly: true,
-      secure: config.isProduction,
-      sameSite: config.isProduction ? 'strict' : 'lax',
-    });
-
-    logger.info(`User logged out: ${username}`);
-    
-    // ✅ FIXED: Redirect to frontend home
-    res.redirect(frontendUrl);
+    res.redirect(`${config.frontendUrl}/?logout=success`);
   });
 });
 
