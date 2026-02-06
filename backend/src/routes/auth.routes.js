@@ -1,6 +1,12 @@
 /**
- * Authentication Routes
- * OAuth login, callback, and logout with FIXED session handling
+ * THE FINAL FIX - auth.routes.js
+ * 
+ * FIXES:
+ * 1. Explicit req.session.save() with error handling
+ * 2. Better session verification
+ * 3. Proper cookie setting
+ * 
+ * REPLACE: backend/src/routes/auth.routes.js WITH THIS
  */
 
 const express = require('express');
@@ -32,7 +38,7 @@ router.get('/login', (req, res) => {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
 
-    // FIXED: Store in session with proper initialization
+    // Check session exists
     if (!req.session) {
       logger.error('Session not initialized!');
       return res.status(500).json({
@@ -42,26 +48,30 @@ router.get('/login', (req, res) => {
       });
     }
 
+    // Store PKCE data
     req.session.code_verifier = codeVerifier;
     req.session.domain_type = domainType;
     req.session.custom_domain = req.query.customDomain || '';
 
-    // Save session before redirect - CRITICAL
+    // CRITICAL: Explicitly save session before redirect
     req.session.save((err) => {
       if (err) {
-        logger.error('Session save error:', err);
+        logger.error('Session save error in /login:', err);
         return res.status(500).json({
           success: false,
           error: 'Failed to save session',
-          code: 'SESSION_SAVE_ERROR'
+          code: 'SESSION_SAVE_ERROR',
+          details: err.message
         });
       }
+
+      logger.info('✅ Session saved with code_verifier');
 
       const params = new URLSearchParams({
         response_type: 'code',
         client_id: config.clientId,
         redirect_uri: config.redirectUri,
-        scope: 'api web refresh_token openid profile email',  // ✅ NEW (Correct)
+        scope: 'api web refresh_token openid profile email',
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         prompt: 'login',
@@ -101,15 +111,24 @@ router.get('/oauth/callback', async (req, res) => {
   }
 
   try {
-    // FIXED: Check session exists
-    if (!req.session || !req.session.code_verifier) {
-      logger.error('Session or code_verifier missing in callback');
+    // Verify session exists
+    if (!req.session) {
+      logger.error('❌ No session object in callback!');
+      return res.redirect(`${config.frontendUrl}/?error=no_session`);
+    }
+
+    if (!req.session.code_verifier) {
+      logger.error('❌ No code_verifier in session!');
+      logger.error('Session ID:', req.sessionID);
+      logger.error('Session data:', JSON.stringify(req.session));
       return res.redirect(`${config.frontendUrl}/?error=session_expired`);
     }
 
     const codeVerifier = req.session.code_verifier;
     const domainType = req.session.domain_type || 'production';
     const customDomain = req.session.custom_domain || '';
+
+    logger.info('✅ Session verified, code_verifier found');
 
     // Determine token URL
     let tokenUrl;
@@ -144,6 +163,8 @@ router.get('/oauth/callback', async (req, res) => {
       id: idUrl,
     } = tokenResponse.data;
 
+    logger.info('✅ Tokens received from Salesforce');
+
     // Fetch user info
     logger.info('Fetching user info...');
     const userInfoResponse = await axios.get(idUrl, {
@@ -152,8 +173,13 @@ router.get('/oauth/callback', async (req, res) => {
     });
 
     const userInfo = userInfoResponse.data;
+    logger.info(`✅ User info received: ${userInfo.username}`);
 
-    // FIXED: Store everything in session properly
+    // CRITICAL: Clear old session data first
+    delete req.session.code_verifier;
+    delete req.session.custom_domain;
+
+    // Store authentication data
     req.session.access_token = access_token;
     req.session.refresh_token = refresh_token;
     req.session.instance_url = instance_url;
@@ -163,19 +189,42 @@ router.get('/oauth/callback', async (req, res) => {
     req.session.userType = userInfo.user_type || 'Standard';
     req.session.domain_type = domainType;
 
-    // Clean up temporary data
-    delete req.session.code_verifier;
-    delete req.session.custom_domain;
+    // CRITICAL: Force session regeneration for security
+    const sessionData = {
+      access_token,
+      refresh_token,
+      instance_url,
+      authenticated: true,
+      username: userInfo.username || 'User',
+      email: userInfo.email || '',
+      userType: userInfo.user_type || 'Standard',
+      domain_type: domainType,
+    };
 
-    // CRITICAL: Save session before redirect
-    req.session.save((err) => {
+    req.session.regenerate((err) => {
       if (err) {
-        logger.error('Failed to save session after authentication:', err);
-        return res.redirect(`${config.frontendUrl}/?error=session_save_failed`);
+        logger.error('Session regeneration error:', err);
+        // Continue anyway, try to save current session
       }
 
-      logger.info(`✅ User authenticated successfully: ${userInfo.username}`);
-      res.redirect(`${config.frontendUrl}/?login=success`);
+      // Restore data after regeneration
+      Object.assign(req.session, sessionData);
+
+      // CRITICAL: Explicitly save session with verification
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          logger.error('❌ Failed to save session after authentication:', saveErr);
+          logger.error('Session ID:', req.sessionID);
+          return res.redirect(`${config.frontendUrl}/?error=session_save_failed`);
+        }
+
+        logger.info('✅ Session saved successfully');
+        logger.info(`✅ User authenticated: ${userInfo.username}`);
+        logger.info('Session ID:', req.sessionID);
+        
+        // Redirect with success
+        res.redirect(`${config.frontendUrl}/?login=success`);
+      });
     });
 
   } catch (err) {
@@ -199,7 +248,7 @@ router.post('/logout', (req, res) => {
 
   const username = req.session.username || 'User';
   
-  // Destroy session - FIXED
+  // Destroy session
   req.session.destroy((err) => {
     if (err) {
       logger.error('Session destruction error:', err);
@@ -219,7 +268,7 @@ router.post('/logout', (req, res) => {
 });
 
 /**
- * GET /logout - Alternative logout endpoint (for GET requests)
+ * GET /logout - Alternative logout endpoint
  */
 router.get('/logout', (req, res) => {
   if (!req.session) {
