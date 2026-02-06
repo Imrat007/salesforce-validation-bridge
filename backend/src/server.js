@@ -1,6 +1,6 @@
 /**
  * Salesforce Validation Rules Bridge - Backend Server
- * Production-Ready Version with Fixed CORS & Session Management
+ * Production-Ready Version with Fixed Session & CORS
  */
 
 require('dotenv').config();
@@ -27,7 +27,7 @@ app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: false, // Allow frontend to load resources
+  contentSecurityPolicy: false,
 }));
 
 app.use(compression());
@@ -37,7 +37,7 @@ if (config.nodeEnv !== 'production') {
   app.use(morgan('dev'));
 }
 
-// CORS - FIXED to allow Vercel preview deployments
+// CORS - FIXED to allow all Vercel preview deployments
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, curl, health checks)
@@ -61,41 +61,23 @@ const corsOptions = {
     if (isAllowedOrigin || isVercelPreview) {
       callback(null, true);
     } else {
-      logger.warn(`⚠️  Blocked CORS request from origin: ${origin}`);
-      // Still allow for debugging, but log it
-      callback(null, true);
+      logger.warn(`⚠️  CORS blocked: ${origin}`);
+      callback(null, true); // Still allow but log
     }
   },
-  credentials: true, // CRITICAL: Allow cookies
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['set-cookie'],
-  maxAge: 86400, // Cache preflight for 24 hours
+  maxAge: 86400,
 };
 
 app.use(cors(corsOptions));
-
-// Handle preflight requests explicitly
 app.options('*', cors(corsOptions));
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Rate limiting - more lenient for API
-const limiter = rateLimit({
-  windowMs: config.rateLimitWindowMs || 15 * 60 * 1000, // 15 minutes
-  max: config.rateLimitMax || 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => {
-    // Skip rate limiting for health checks
-    return req.path === '/health' || req.path === '/';
-  },
-  message: 'Too many requests, please try again later.',
-});
-
-app.use('/api/', limiter);
 
 // Redis client setup
 let redisClient;
@@ -139,14 +121,14 @@ async function initializeRedis() {
       sessionStore = new RedisStore({
         client: redisClient,
         prefix: 'sess:',
-        ttl: 86400, // 24 hours in seconds
+        ttl: 86400,
       });
       
       logger.info('✅ Redis session store initialized successfully');
       return true;
     } catch (err) {
       logger.error('❌ Redis initialization failed:', err);
-      logger.warn('⚠️  Falling back to memory store (sessions will not persist)');
+      logger.warn('⚠️  Falling back to memory store');
       return false;
     }
   } else {
@@ -155,16 +137,16 @@ async function initializeRedis() {
   }
 }
 
-// Session configuration - FIXED for production
+// Session configuration
 const sessionConfig = {
-  secret: config.sessionSecret || 'your-secret-key-change-in-production',
+  secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
   name: 'sf.sid',
   cookie: {
     secure: config.nodeEnv === 'production',
     httpOnly: true,
-    maxAge: config.sessionMaxAge || 24 * 60 * 60 * 1000,
+    maxAge: config.sessionMaxAge,
     sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
     domain: undefined,
   },
@@ -172,53 +154,97 @@ const sessionConfig = {
   rolling: true,
 };
 
-// Initialize session after Redis (if available)
+// CRITICAL: Initialize session middleware BEFORE routes
 async function initializeSession() {
   if (sessionStore) {
     sessionConfig.store = sessionStore;
     logger.info('✅ Using Redis session store');
   } else {
-    logger.warn('⚠️  Using in-memory session store (development only)');
+    logger.warn('⚠️  Using in-memory session store');
   }
   
+  // Apply session middleware
   app.use(session(sessionConfig));
+  logger.info('✅ Session middleware initialized');
 }
 
-// Health check (before session) - for monitoring services
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: config.nodeEnv,
-    redis: redisClient?.isOpen ? 'connected' : 'disconnected',
-    uptime: process.uptime(),
-  });
+// Rate limiting (applied after session)
+const limiter = rateLimit({
+  windowMs: config.rateLimitWindowMs,
+  max: config.rateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    return req.path === '/health' || req.path === '/';
+  },
+  message: 'Too many requests, please try again later.',
 });
 
-// Root route - Welcome message
-app.get('/', (req, res) => {
-  res.json({
-    name: 'Salesforce Validation Rules Bridge API',
-    version: '1.0.0',
-    status: 'running',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      health: '/health',
-      api: '/api',
-      oauth: '/oauth',
-      documentation: config.frontendUrl
-    },
-    message: 'API is running. Please use the frontend application to interact with this service.',
-    frontend: config.frontendUrl
-  });
-});
+// Start server
+async function startServer() {
+  try {
+    // 1. Initialize Redis first
+    await initializeRedis();
+    
+    // 2. Initialize session middleware BEFORE any routes
+    await initializeSession();
+    
+    // 3. Apply rate limiting
+    app.use('/api/', limiter);
+    
+    // 4. Health check
+    app.get('/health', (req, res) => {
+      res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        environment: config.nodeEnv,
+        redis: redisClient?.isOpen ? 'connected' : 'disconnected',
+        uptime: process.uptime(),
+      });
+    });
 
-// Main routes - Your application routes
-app.use('/', routes);
+    // 5. Root route
+    app.get('/', (req, res) => {
+      res.json({
+        name: 'Salesforce Validation Rules Bridge API',
+        version: '1.0.0',
+        status: 'running',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+          health: '/health',
+          api: '/api',
+          auth: '/login',
+          documentation: config.frontendUrl
+        },
+        message: 'API is running. Use the frontend to interact.',
+        frontend: config.frontendUrl
+      });
+    });
 
-// Error handlers (MUST be last)
-app.use(notFoundHandler);
-app.use(errorHandler);
+    // 6. Main application routes
+    app.use('/', routes);
+
+    // 7. Error handlers (MUST be last)
+    app.use(notFoundHandler);
+    app.use(errorHandler);
+    
+    // 8. Start listening
+    const PORT = config.port;
+    app.listen(PORT, () => {
+      logger.info('='.repeat(60));
+      logger.info(`🚀 Salesforce Validation Bridge Backend`);
+      logger.info(`📡 Server running on port ${PORT}`);
+      logger.info(`🌍 Environment: ${config.nodeEnv}`);
+      logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
+      logger.info(`🏠 Backend URL: ${config.appUrl}`);
+      logger.info(`🔐 Redis: ${redisClient?.isOpen ? 'Connected ✅' : 'Not Connected ⚠️'}`);
+      logger.info('='.repeat(60));
+    });
+  } catch (err) {
+    logger.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
 
 // Graceful shutdown
 async function gracefulShutdown(signal) {
@@ -229,7 +255,6 @@ async function gracefulShutdown(signal) {
       await redisClient.quit();
       logger.info('Redis client disconnected');
     }
-    
     process.exit(0);
   } catch (err) {
     logger.error('Error during shutdown:', err);
@@ -240,44 +265,14 @@ async function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Unhandled rejection handler
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection:', reason);
 });
 
-// Uncaught exception handler
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', error);
   process.exit(1);
 });
-
-// Start server
-async function startServer() {
-  try {
-    // Initialize Redis first
-    await initializeRedis();
-    
-    // Then initialize session
-    await initializeSession();
-    
-    // Start listening
-    const PORT = config.port || process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      logger.info('='.repeat(60));
-      logger.info(`🚀 Salesforce Validation Bridge Backend`);
-      logger.info(`📡 Server running on port ${PORT}`);
-      logger.info(`🌍 Environment: ${config.nodeEnv}`);
-      logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
-      logger.info(`🏠 Backend URL: ${config.appUrl}`);
-      logger.info(`🔐 Redis: ${redisClient?.isOpen ? 'Connected ✅' : 'Not Connected ⚠️'}`);
-      logger.info(`📚 API Docs: ${config.appUrl}/`);
-      logger.info('='.repeat(60));
-    });
-  } catch (err) {
-    logger.error('Failed to start server:', err);
-    process.exit(1);
-  }
-}
 
 startServer();
 
