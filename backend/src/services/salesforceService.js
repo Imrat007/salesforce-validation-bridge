@@ -1,6 +1,7 @@
 /**
  * Salesforce Service
  * Handles all Salesforce API interactions
+ * FIXED: Removed undefined config.salesforceDomains reference
  */
 
 const axios = require('axios');
@@ -9,16 +10,26 @@ const logger = require('../utils/logger');
 
 /**
  * Get session tokens from request
+ * FIXED: Proper null checks and fallback values
  */
 function getSessionTokens(req) {
-  if (!req.session?.access_token || !req.session?.instance_url) {
+  // Check if session exists
+  if (!req.session) {
+    logger.warn('No session object found');
+    return null;
+  }
+
+  // Check if required tokens exist
+  if (!req.session.access_token || !req.session.instance_url) {
+    logger.warn('Missing access_token or instance_url in session');
     return null;
   }
   
   return {
     access_token: req.session.access_token,
     instance_url: req.session.instance_url,
-    salesforce_domain: req.session.salesforce_domain || config.salesforceDomains.production,
+    // FIXED: Use domain_type from session or default to 'production'
+    salesforce_domain: req.session.domain_type || 'production',
   };
 }
 
