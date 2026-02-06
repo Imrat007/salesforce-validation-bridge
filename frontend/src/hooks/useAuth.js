@@ -8,6 +8,9 @@ export const useAuth = () => {
 
   const checkAuth = useCallback(async () => {
     try {
+      // Small delay to ensure cookie is set after OAuth redirect
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const data = await checkAuthStatus();
       
       if (data.loggedIn) {
