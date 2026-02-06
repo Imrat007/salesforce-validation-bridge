@@ -1,6 +1,6 @@
 /**
  * Salesforce Validation Rules Bridge - Backend Server
- * Production-Ready Version with Fixed Session Management & Routes
+ * Production-Ready Version with Fixed CORS & Session Management
  */
 
 require('dotenv').config();
@@ -37,42 +37,61 @@ if (config.nodeEnv !== 'production') {
   app.use(morgan('dev'));
 }
 
-// CORS - FIXED for production
+// CORS - FIXED to allow Vercel preview deployments
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, curl, health checks)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // List of allowed origins
     const allowedOrigins = [
       config.frontendUrl,
       'https://salesforce-validation-bridge.vercel.app',
       'http://localhost:5173',
-      'http://localhost:3000'
+      'http://localhost:3000',
+      'http://localhost:5174',
     ];
+
+    // Check if origin matches allowed origins or Vercel preview pattern
+    const isAllowedOrigin = allowedOrigins.includes(origin);
+    const isVercelPreview = origin.match(/^https:\/\/salesforce-validation-bridge.*\.vercel\.app$/);
     
-    // Allow requests with no origin (mobile apps, Postman, curl, health checks)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin || isVercelPreview) {
       callback(null, true);
     } else {
-      logger.warn(`Blocked CORS request from origin: ${origin}`);
-      callback(null, true); // Allow for now, log for debugging
+      logger.warn(`⚠️  Blocked CORS request from origin: ${origin}`);
+      // Still allow for debugging, but log it
+      callback(null, true);
     }
   },
   credentials: true, // CRITICAL: Allow cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['set-cookie'],
+  maxAge: 86400, // Cache preflight for 24 hours
 };
 
 app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting
+// Rate limiting - more lenient for API
 const limiter = rateLimit({
-  windowMs: config.rateLimitWindowMs || 15 * 60 * 1000, // 15 minutes default
-  max: config.rateLimitMax || 100, // 100 requests per windowMs
+  windowMs: config.rateLimitWindowMs || 15 * 60 * 1000, // 15 minutes
+  max: config.rateLimitMax || 100,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health checks
+    return req.path === '/health' || req.path === '/';
+  },
   message: 'Too many requests, please try again later.',
 });
 
@@ -141,16 +160,16 @@ const sessionConfig = {
   secret: config.sessionSecret || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
-  name: 'sf.sid', // Custom session cookie name
+  name: 'sf.sid',
   cookie: {
-    secure: config.nodeEnv === 'production', // HTTPS only in production
-    httpOnly: true, // Prevent XSS
-    maxAge: config.sessionMaxAge || 24 * 60 * 60 * 1000, // 24 hours default
-    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax', // CRITICAL for cross-domain
-    domain: undefined, // Let browser handle
+    secure: config.nodeEnv === 'production',
+    httpOnly: true,
+    maxAge: config.sessionMaxAge || 24 * 60 * 60 * 1000,
+    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
+    domain: undefined,
   },
-  proxy: true, // CRITICAL: Trust the reverse proxy
-  rolling: true, // Reset expiration on each request
+  proxy: true,
+  rolling: true,
 };
 
 // Initialize session after Redis (if available)
@@ -176,7 +195,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Root route - FIXED: Added welcome message for base URL
+// Root route - Welcome message
 app.get('/', (req, res) => {
   res.json({
     name: 'Salesforce Validation Rules Bridge API',
