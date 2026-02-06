@@ -3,10 +3,14 @@ import { API_BASE } from '../utils/constants';
 export const checkAuthStatus = async () => {
   const response = await fetch(`${API_BASE}/api/me`, {
     credentials: 'include',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
   });
   
   if (!response.ok) {
-    throw new Error('Authentication check failed');
+    return { loggedIn: false };
   }
   
   return response.json();
