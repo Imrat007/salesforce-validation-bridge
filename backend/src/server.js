@@ -1,6 +1,10 @@
 /**
- * Salesforce Validation Rules Bridge - Backend Server
- * Production-Ready Version with Fixed Session & CORS
+ * THE FINAL FIX - server.js
+ * 
+ * PROBLEM: Redis connected BUT session cookie not reaching browser
+ * CAUSE: SameSite=None cookies need special CORS handling
+ * 
+ * REPLACE: backend/src/server.js WITH THIS
  */
 
 require('dotenv').config();
@@ -22,30 +26,21 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
-// Trust proxy - CRITICAL for production (Render uses reverse proxy)
+// ============================================================================
+// CRITICAL: Trust proxy MUST be set FIRST
+// ============================================================================
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: false,
-}));
-
-app.use(compression());
-
-// Logging
-if (config.nodeEnv !== 'production') {
-  app.use(morgan('dev'));
-}
-
-// CORS - FIXED to allow all Vercel preview deployments
+// ============================================================================
+// CORS - FIXED for SameSite=None cookies
+// ============================================================================
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, curl, health checks)
+    // Allow requests with no origin (Postman, curl, health checks)
     if (!origin) {
       return callback(null, true);
     }
 
-    // List of allowed origins
     const allowedOrigins = [
       config.frontendUrl,
       'https://salesforce-validation-bridge.vercel.app',
@@ -54,7 +49,6 @@ const corsOptions = {
       'http://localhost:5174',
     ];
 
-    // Check if origin matches allowed origins or Vercel preview pattern
     const isAllowedOrigin = allowedOrigins.includes(origin);
     const isVercelPreview = origin.match(/^https:\/\/salesforce-validation-bridge.*\.vercel\.app$/);
     
@@ -65,21 +59,39 @@ const corsOptions = {
       callback(null, true); // Still allow but log
     }
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // CRITICAL for cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Set-Cookie'],
   exposedHeaders: ['set-cookie'],
   maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 };
 
+// Apply CORS before any routes
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight
+
+// Security middleware - AFTER CORS
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false, // CRITICAL for cross-origin cookies
+}));
+
+app.use(compression());
+
+// Logging
+if (config.nodeEnv !== 'production') {
+  app.use(morgan('dev'));
+}
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Redis client setup
+// ============================================================================
+// REDIS CLIENT SETUP
+// ============================================================================
 let redisClient;
 let sessionStore;
 
@@ -121,7 +133,7 @@ async function initializeRedis() {
       sessionStore = new RedisStore({
         client: redisClient,
         prefix: 'sess:',
-        ttl: 86400,
+        ttl: 86400, // 24 hours
       });
       
       logger.info('✅ Redis session store initialized successfully');
@@ -137,24 +149,32 @@ async function initializeRedis() {
   }
 }
 
-// Session configuration
+// ============================================================================
+// SESSION CONFIGURATION - THE FIX!
+// ============================================================================
 const sessionConfig = {
+  store: undefined, // Will be set after Redis initializes
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
   name: 'sf.sid',
   cookie: {
-    secure: config.nodeEnv === 'production',
+    // CRITICAL FIXES for cross-origin cookies:
+    secure: true, // ALWAYS true (even in dev with HTTPS proxy)
     httpOnly: true,
     maxAge: config.sessionMaxAge,
-    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
-    domain: undefined,
+    sameSite: 'none', // MUST be 'none' for cross-origin
+    domain: undefined, // Let browser decide
+    path: '/',
   },
-  proxy: true,
-  rolling: true,
+  proxy: true, // CRITICAL - trust proxy headers
+  rolling: true, // Refresh cookie on each request
+  unset: 'destroy', // Destroy session when unset
 };
 
-// CRITICAL: Initialize session middleware BEFORE routes
+// ============================================================================
+// INITIALIZE SESSION MIDDLEWARE
+// ============================================================================
 async function initializeSession() {
   if (sessionStore) {
     sessionConfig.store = sessionStore;
@@ -163,12 +183,13 @@ async function initializeSession() {
     logger.warn('⚠️  Using in-memory session store');
   }
   
-  // Apply session middleware
   app.use(session(sessionConfig));
   logger.info('✅ Session middleware initialized');
 }
 
-// Rate limiting (applied after session)
+// ============================================================================
+// RATE LIMITING
+// ============================================================================
 const limiter = rateLimit({
   windowMs: config.rateLimitWindowMs,
   max: config.rateLimitMax,
@@ -180,13 +201,15 @@ const limiter = rateLimit({
   message: 'Too many requests, please try again later.',
 });
 
-// Start server
+// ============================================================================
+// START SERVER
+// ============================================================================
 async function startServer() {
   try {
     // 1. Initialize Redis first
     await initializeRedis();
     
-    // 2. Initialize session middleware BEFORE any routes
+    // 2. Initialize session middleware
     await initializeSession();
     
     // 3. Apply rate limiting
@@ -200,6 +223,10 @@ async function startServer() {
         environment: config.nodeEnv,
         redis: redisClient?.isOpen ? 'connected' : 'disconnected',
         uptime: process.uptime(),
+        session: {
+          store: sessionStore ? 'redis' : 'memory',
+          cookie: sessionConfig.cookie,
+        }
       });
     });
 
@@ -238,6 +265,7 @@ async function startServer() {
       logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
       logger.info(`🏠 Backend URL: ${config.appUrl}`);
       logger.info(`🔐 Redis: ${redisClient?.isOpen ? 'Connected ✅' : 'Not Connected ⚠️'}`);
+      logger.info(`🍪 Cookies: SameSite=none, Secure=true`);
       logger.info('='.repeat(60));
     });
   } catch (err) {
@@ -246,7 +274,9 @@ async function startServer() {
   }
 }
 
-// Graceful shutdown
+// ============================================================================
+// GRACEFUL SHUTDOWN
+// ============================================================================
 async function gracefulShutdown(signal) {
   logger.info(`${signal} received, shutting down gracefully...`);
   
