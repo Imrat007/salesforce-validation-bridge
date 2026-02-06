@@ -1,6 +1,6 @@
 /**
  * Salesforce Validation Rules Bridge - Backend Server
- * Production-Ready Version with Fixed Session Management
+ * Production-Ready Version with Fixed Session Management & Routes
  */
 
 require('dotenv').config();
@@ -22,7 +22,7 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
-// Trust proxy - CRITICAL for production
+// Trust proxy - CRITICAL for production (Render uses reverse proxy)
 app.set('trust proxy', 1);
 
 // Security middleware
@@ -47,7 +47,7 @@ const corsOptions = {
       'http://localhost:3000'
     ];
     
-    // Allow requests with no origin (mobile apps, Postman, etc.)
+    // Allow requests with no origin (mobile apps, Postman, curl, health checks)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -69,8 +69,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: config.rateLimitWindowMs,
-  max: config.rateLimitMax,
+  windowMs: config.rateLimitWindowMs || 15 * 60 * 1000, // 15 minutes default
+  max: config.rateLimitMax || 100, // 100 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests, please try again later.',
@@ -138,16 +138,16 @@ async function initializeRedis() {
 
 // Session configuration - FIXED for production
 const sessionConfig = {
-  secret: config.sessionSecret,
+  secret: config.sessionSecret || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
   name: 'sf.sid', // Custom session cookie name
   cookie: {
     secure: config.nodeEnv === 'production', // HTTPS only in production
     httpOnly: true, // Prevent XSS
-    maxAge: config.sessionMaxAge,
+    maxAge: config.sessionMaxAge || 24 * 60 * 60 * 1000, // 24 hours default
     sameSite: config.nodeEnv === 'production' ? 'none' : 'lax', // CRITICAL for cross-domain
-    domain: config.nodeEnv === 'production' ? undefined : undefined, // Let browser handle
+    domain: undefined, // Let browser handle
   },
   proxy: true, // CRITICAL: Trust the reverse proxy
   rolling: true, // Reset expiration on each request
@@ -165,7 +165,7 @@ async function initializeSession() {
   app.use(session(sessionConfig));
 }
 
-// Health check (before session)
+// Health check (before session) - for monitoring services
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -176,10 +176,28 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Main routes
+// Root route - FIXED: Added welcome message for base URL
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Salesforce Validation Rules Bridge API',
+    version: '1.0.0',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      oauth: '/oauth',
+      documentation: config.frontendUrl
+    },
+    message: 'API is running. Please use the frontend application to interact with this service.',
+    frontend: config.frontendUrl
+  });
+});
+
+// Main routes - Your application routes
 app.use('/', routes);
 
-// Error handlers
+// Error handlers (MUST be last)
 app.use(notFoundHandler);
 app.use(errorHandler);
 
@@ -188,7 +206,7 @@ async function gracefulShutdown(signal) {
   logger.info(`${signal} received, shutting down gracefully...`);
   
   try {
-    if (redisClient) {
+    if (redisClient && redisClient.isOpen) {
       await redisClient.quit();
       logger.info('Redis client disconnected');
     }
@@ -203,6 +221,17 @@ async function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
+// Unhandled rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Uncaught exception handler
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
 // Start server
 async function startServer() {
   try {
@@ -213,14 +242,16 @@ async function startServer() {
     await initializeSession();
     
     // Start listening
-    const PORT = config.port;
+    const PORT = config.port || process.env.PORT || 3000;
     app.listen(PORT, () => {
       logger.info('='.repeat(60));
       logger.info(`🚀 Salesforce Validation Bridge Backend`);
       logger.info(`📡 Server running on port ${PORT}`);
       logger.info(`🌍 Environment: ${config.nodeEnv}`);
       logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
+      logger.info(`🏠 Backend URL: ${config.appUrl}`);
       logger.info(`🔐 Redis: ${redisClient?.isOpen ? 'Connected ✅' : 'Not Connected ⚠️'}`);
+      logger.info(`📚 API Docs: ${config.appUrl}/`);
       logger.info('='.repeat(60));
     });
   } catch (err) {
