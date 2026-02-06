@@ -9,16 +9,6 @@ const apiRoutes = require('./api.routes');
 
 const router = express.Router();
 
-// Health check
-router.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    uptime: process.uptime(),
-  });
-});
-
 // Auth routes (login, callback, logout)
 router.use('/', authRoutes);
 
