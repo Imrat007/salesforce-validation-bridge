@@ -1,6 +1,7 @@
 /**
  * API Routes
  * User info and validation rules management
+ * FIXED: Proper session validation
  */
 
 const express = require('express');
@@ -12,10 +13,18 @@ const router = express.Router();
 
 /**
  * GET /api/me - Get current user info
+ * FIXED: Added session existence check
  */
 router.get('/me', (req, res) => {
-  const tokens = getSessionTokens(req);
+  // FIXED: Check if session exists first
+  if (!req.session) {
+    return res.json({
+      loggedIn: false,
+    });
+  }
 
+  const tokens = getSessionTokens(req);
+  
   if (tokens && req.session.authenticated) {
     res.json({
       loggedIn: true,
