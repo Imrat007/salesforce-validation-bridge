@@ -61,7 +61,7 @@ router.get('/login', (req, res) => {
         response_type: 'code',
         client_id: config.clientId,
         redirect_uri: config.redirectUri,
-        scope: 'api id web refresh_token',
+        scope: 'api web refresh_token openid profile email',  // ✅ NEW (Correct)
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         prompt: 'login',
