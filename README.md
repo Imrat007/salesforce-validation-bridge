@@ -127,7 +127,6 @@ npm start
 The application will be available at: http://localhost:3000
 
 ## 📁 Project Structure
-
 ```
 salesforce-validation-bridge/
 ├── backend/
@@ -149,18 +148,53 @@ salesforce-validation-bridge/
 │   │   └── server.js               # Express server
 │   ├── .env                        # Environment variables
 │   ├── .env.example                # Environment template
-│   └── package.json
+│   ├── .eslintrc.js                # ESLint configuration
+│   ├── nodemon.json                # Nodemon configuration
+│   ├── package.json                # Backend dependencies
+│   └── package-lock.json           # Lock file
 ├── frontend/
 │   ├── src/
+│   │   ├── components/
+│   │   │   ├── auth/
+│   │   │   │   └── Loginform.jsx   # Login component
+│   │   │   ├── common/
+│   │   │   │   ├── Alert.jsx       # Alert component
+│   │   │   │   └── Loader.jsx      # Loader component
+│   │   │   ├── layout/
+│   │   │   │   └── Layout.jsx      # Main layout
+│   │   │   └── rules/
+│   │   │       ├── Rulessection.jsx # Rules section
+│   │   │       └── Emptystate.jsx  # Empty state
+│   │   ├── hooks/
+│   │   │   ├── useAuth.js          # Authentication hook
+│   │   │   ├── useRules.js         # Rules management hook
+│   │   │   └── useToast.js         # Toast notifications hook
+│   │   ├── services/
+│   │   │   └── api.js              # API service layer
 │   │   ├── App.jsx                 # Main React component
-│   │   ├── App.css                 # Component styles
 │   │   ├── main.jsx                # React entry point
 │   │   └── index.css               # Global styles
+│   ├── dist/                       # Production build output
+│   ├── .env                        # Environment variables
+│   ├── .env.example                # Environment template
+│   ├── .eslintrc.cjs               # ESLint configuration
+│   ├── DEPLOYMENT.md               # Deployment guide
 │   ├── index.html                  # HTML template
+│   ├── index.js                    # Additional config
 │   ├── vite.config.js              # Vite configuration
-│   └── package.json
+│   ├── vercel.json                 # Vercel deployment config
+│   ├── package.json                # Frontend dependencies
+│   └── package-lock.json           # Lock file
+├── node_modules/                   # Root dependencies
+├── .gitignore                      # Git ignore rules
+├── CHANGELOG.md                    # Version history
+├── DEPLOYMENT.md                   # Deployment instructions
+├── LICENSE                         # MIT License
+├── QUICKSTART.md                   # Quick start guide
+├── README.md                       # This file
+├── vercel.json                     # Root Vercel config
 ├── package.json                    # Root package.json
-└── README.md                       # This file
+└── package-lock.json               # Root lock file
 ```
 
 ## 🔒 Security Features
