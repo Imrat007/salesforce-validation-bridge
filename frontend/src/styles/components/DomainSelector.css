@@ -1,51 +1,55 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+.domain-selector {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-body {
-  font-family: 'Salesforce Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-  background: var(--sf-gray-50);
-  color: var(--sf-gray-900);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
+.domain-selector-container {
+  width: 100%;
 }
 
-.app {
-  min-height: 100vh;
+.domain-selector-title {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.domain-selector-subtitle {
+  color: #777;
+  font-size: 13px;
+  margin-bottom: 25px;
+}
+
+.domain-option {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  margin-bottom: 10px;
+  background: #0c0c0c;
+  border: 1px solid #292929;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: .2s ease;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.domain-option:hover,
+.domain-option.selected {
+  border-color: var(--orange);
+  background: rgba(255,70,0,.06);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.domain-option input {
+  accent-color: var(--orange);
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.domain-option-title {
+  color: #eee;
+  font-weight: 650;
 }
 
-*:focus-visible {
-  outline: 2px solid var(--sf-blue);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+.domain-option-description {
+  color: #666;
+  font-size: 11px;
 }

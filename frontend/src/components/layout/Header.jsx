@@ -7,7 +7,7 @@ const Header = ({ loggedIn, userInfo, onLogout, onRefresh, rulesLoading }) => {
         <div className="header-left">
           <div className="sf-logo">
             <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <circle cx="20" cy="20" r="20" fill="#00A1E0"/>
+              <circle cx="20" cy="20" r="20" fill="#ff6a00"/>
               <path d="M20 8C13.373 8 8 13.373 8 20s5.373 12 12 12 12-5.373 12-12S26.627 8 20 8zm0 20c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8z" fill="#fff"/>
               <path d="M20 14a6 6 0 100 12 6 6 0 000-12zm0 9a3 3 0 110-6 3 3 0 010 6z" fill="#fff"/>
             </svg>
