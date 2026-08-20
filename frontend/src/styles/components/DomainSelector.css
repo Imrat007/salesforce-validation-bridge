@@ -1,0 +1,55 @@
+.domain-selector {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.domain-selector-container {
+  width: 100%;
+}
+
+.domain-selector-title {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.domain-selector-subtitle {
+  color: #777;
+  font-size: 13px;
+  margin-bottom: 25px;
+}
+
+.domain-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  margin-bottom: 10px;
+  background: #0c0c0c;
+  border: 1px solid #292929;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.domain-option:hover,
+.domain-option.selected {
+  border-color: var(--orange);
+  background: rgba(255,70,0,.06);
+}
+
+.domain-option input {
+  accent-color: var(--orange);
+}
+
+.domain-option-title {
+  color: #eee;
+  font-weight: 650;
+}
+
+.domain-option-description {
+  color: #666;
+  font-size: 11px;
+}

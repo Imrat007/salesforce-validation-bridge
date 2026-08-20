@@ -1,0 +1,294 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+  background: rgba(8, 8, 8, 0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.header-content {
+  width: min(1400px, calc(100% - 40px));
+  min-height: 82px;
+  margin: 0 auto;
+  padding: 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.sf-logo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 106, 0, 0.18),
+    rgba(255, 106, 0, 0.04)
+  );
+  box-shadow: 0 0 25px rgba(255, 106, 0, 0.08);
+  overflow: hidden;
+}
+
+.sf-logo svg {
+  width: 34px;
+  height: 34px;
+}
+
+.title {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+  min-width: 0;
+}
+
+.user-details {
+  text-align: right;
+  min-width: 0;
+}
+
+.user-name {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.user-meta {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.user-type {
+  padding: 3px 8px;
+  color: var(--orange-light);
+  background: rgba(255, 106, 0, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.user-email {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-actions button {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.main-content {
+  width: min(1400px, calc(100% - 40px));
+  flex: 1;
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.footer {
+  margin-top: auto;
+}
+
+@media (max-width: 900px) {
+  .header-content {
+    width: min(100% - 28px, 1400px);
+    gap: 18px;
+  }
+
+  .user-info {
+    gap: 12px;
+  }
+
+  .user-details {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .header-content {
+    width: calc(100% - 24px);
+    min-height: 68px;
+    padding: 10px 0;
+  }
+
+  .header-left {
+    gap: 10px;
+  }
+
+  .sf-logo {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+    border-radius: 11px;
+  }
+
+  .sf-logo svg {
+    width: 29px;
+    height: 29px;
+  }
+
+  .title {
+    font-size: 15px;
+  }
+
+  .subtitle {
+    display: none;
+  }
+
+  .user-info {
+    margin-left: auto;
+  }
+
+  .user-actions {
+    gap: 6px;
+  }
+
+  .user-actions button {
+    min-height: 36px;
+  }
+
+  .user-actions button svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .main-content {
+    width: calc(100% - 24px);
+    padding: 22px 0 36px;
+  }
+}
+
+@media (max-width: 460px) {
+  .header-content {
+    gap: 8px;
+  }
+
+  .title {
+    font-size: 14px;
+  }
+
+  .user-actions button {
+    padding: 8px;
+  }
+
+  .user-actions button span {
+    display: none;
+  }
+
+  .user-actions button svg {
+    margin: 0;
+  }
+}
+
+
+.footer {
+  margin-top: auto;
+  width: 100%;
+  border-top: 1px solid rgba(255,106,0,.12);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255,106,0,.045), transparent 35%),
+    rgba(7,7,7,.92);
+}
+
+.footer-content {
+  width: min(1400px, calc(100% - 40px));
+  min-height: 72px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.footer-text {
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 7px 11px;
+  color: var(--text-3);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.footer-link:hover {
+  color: var(--orange-light);
+  background: rgba(255,106,0,.06);
+  border-color: var(--border);
+}
+
+@media (max-width: 620px) {
+  .footer-content {
+    width: calc(100% - 24px);
+    min-height: 90px;
+    padding: 16px 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .footer-links {
+    justify-content: center;
+  }
+}
